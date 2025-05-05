@@ -8,7 +8,7 @@ import { useWorkoutStore } from "@/lib/workout-store"
 export default function DebugPanel() {
   const [isVisible, setIsVisible] = useState(false)
   const [storeState, setStoreState] = useState<any>({})
-  const { getWorkoutSchedule } = useWorkoutStore()
+  const { getWorkoutSchedule, getCurrentWorkoutDay } = useWorkoutStore()
 
   useEffect(() => {
     // Solo mostrar en desarrollo
@@ -18,11 +18,20 @@ export default function DebugPanel() {
 
     const updateState = () => {
       const state = useWorkoutStore.getState()
+      const workouts = state.workouts
+        .filter((w) => w.workoutType !== "Descanso")
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+      const lastWorkout = workouts.length > 0 ? workouts[0] : null
+      const nextWorkout = getCurrentWorkoutDay()
+
       setStoreState({
         workoutsCount: state.workouts.length,
         lastWorkoutDate: state.lastWorkoutDate,
-        lastWorkoutIndex: state.lastWorkoutIndex,
-        nextWorkoutIndex: (state.lastWorkoutIndex + 1) % getWorkoutSchedule().length,
+        lastWorkout: lastWorkout
+          ? `${lastWorkout.exercise} - ${lastWorkout.workoutType} (${new Date(lastWorkout.date).toLocaleDateString()})`
+          : "Ninguno",
+        nextWorkout: `${nextWorkout.exercise} - ${nextWorkout.workoutType}`,
         currentWorkout: state.currentWorkout
           ? {
               exercise: state.currentWorkout.exercise,
@@ -41,7 +50,7 @@ export default function DebugPanel() {
     return () => {
       unsubscribe()
     }
-  }, [getWorkoutSchedule])
+  }, [getWorkoutSchedule, getCurrentWorkoutDay])
 
   // No mostrar nada en producción
   if (process.env.NODE_ENV !== "development") {
@@ -75,13 +84,10 @@ export default function DebugPanel() {
               <span className="font-medium">Entrenamientos:</span> {storeState.workoutsCount || 0}
             </p>
             <p>
-              <span className="font-medium">Último entrenamiento:</span> {storeState.lastWorkoutDate || "Ninguno"}
+              <span className="font-medium">Último entrenamiento:</span> {storeState.lastWorkout || "Ninguno"}
             </p>
             <p>
-              <span className="font-medium">Índice actual:</span> {storeState.lastWorkoutIndex}
-            </p>
-            <p>
-              <span className="font-medium">Próximo índice:</span> {storeState.nextWorkoutIndex}
+              <span className="font-medium">Próximo entrenamiento:</span> {storeState.nextWorkout || "Ninguno"}
             </p>
             <p>
               <span className="font-medium">Entrenamiento actual:</span>{" "}
