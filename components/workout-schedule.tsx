@@ -14,7 +14,9 @@ export default function WorkoutSchedule() {
   const [workoutType, setWorkoutType] = useState("")
   const [exercise, setExercise] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-  const { getCurrentWorkoutDay } = useWorkoutStore()
+  const [lastIndex, setLastIndex] = useState(-1)
+  const [nextIndex, setNextIndex] = useState(0)
+  const { getCurrentWorkoutDay, getWorkoutSchedule } = useWorkoutStore()
 
   useEffect(() => {
     // Asegurarse de que getCurrentWorkoutDay esté disponible antes de llamarlo
@@ -24,13 +26,19 @@ export default function WorkoutSchedule() {
         setCurrentDay(nextWorkout.dayName)
         setWorkoutType(nextWorkout.workoutType)
         setExercise(nextWorkout.exercise)
+
+        // Obtener índices para depuración
+        const { lastWorkoutIndex } = useWorkoutStore.getState()
+        setLastIndex(lastWorkoutIndex)
+        setNextIndex((lastWorkoutIndex + 1) % getWorkoutSchedule().length)
+
         setIsLoading(false)
       } catch (error) {
         console.error("Error al obtener el día de entrenamiento actual:", error)
         setIsLoading(false)
       }
     }
-  }, [getCurrentWorkoutDay])
+  }, [getCurrentWorkoutDay, getWorkoutSchedule])
 
   if (isLoading) {
     return (
@@ -50,6 +58,14 @@ export default function WorkoutSchedule() {
           Sub Max → Dominadas Volumen Escalera → Fondos Volumen Escalera
         </AlertDescription>
       </Alert>
+
+      {/* Información de depuración - solo visible durante desarrollo */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="text-xs text-muted-foreground bg-gray-100 p-2 rounded">
+          <p>Último índice: {lastIndex}</p>
+          <p>Próximo índice: {nextIndex}</p>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div>

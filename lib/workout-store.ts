@@ -88,15 +88,21 @@ export const useWorkoutStore = create<WorkoutStore>()(
       soundEnabled: true,
 
       getCurrentWorkoutDay: () => {
-        const { lastWorkoutIndex } = get()
+        const { workouts, lastWorkoutIndex } = get()
 
         // Si no hay entrenamientos previos, comenzar con el primero
-        if (lastWorkoutIndex === -1) {
+        if (workouts.length === 0 || lastWorkoutIndex === -1) {
           return workoutSchedule[0]
         }
 
         // Calcular el siguiente índice en la secuencia
         const nextIndex = (lastWorkoutIndex + 1) % workoutSchedule.length
+
+        // Para depuración
+        console.log("Último índice:", lastWorkoutIndex)
+        console.log("Próximo índice:", nextIndex)
+        console.log("Próximo entrenamiento:", workoutSchedule[nextIndex])
+
         return workoutSchedule[nextIndex]
       },
 
@@ -114,13 +120,14 @@ export const useWorkoutStore = create<WorkoutStore>()(
       },
 
       completeWorkout: (workout) => {
-        const { lastWorkoutIndex } = get()
+        const { lastWorkoutIndex, workouts } = get()
 
         // Encontrar el índice del entrenamiento actual en la secuencia
         let currentIndex = lastWorkoutIndex
 
-        // Si es el primer entrenamiento, buscar el índice correspondiente
-        if (currentIndex === -1) {
+        // Si es el primer entrenamiento o no hay índice válido
+        if (currentIndex === -1 || workouts.length === 0) {
+          // Buscar el índice correspondiente al entrenamiento completado
           currentIndex = workoutSchedule.findIndex(
             (day) => day.exercise === workout.exercise && day.workoutType === workout.workoutType,
           )
@@ -131,6 +138,11 @@ export const useWorkoutStore = create<WorkoutStore>()(
 
         // Actualizar el índice para el próximo entrenamiento
         const nextIndex = (currentIndex + 1) % workoutSchedule.length
+
+        // Para depuración
+        console.log("Entrenamiento completado:", workout.exercise, workout.workoutType)
+        console.log("Índice actual:", currentIndex)
+        console.log("Próximo índice:", nextIndex)
 
         set((state) => ({
           workouts: [...state.workouts, workout],
@@ -217,6 +229,9 @@ export const useWorkoutStore = create<WorkoutStore>()(
               ),
           )
 
+          // No actualizamos el lastWorkoutIndex aquí, ya que estamos eliminando un entrenamiento
+          // y no queremos alterar la secuencia
+
           return { workouts: newWorkouts }
         })
       },
@@ -255,6 +270,24 @@ export const useWorkoutStore = create<WorkoutStore>()(
     }),
     {
       name: "calisthenics-workout-storage",
+      onRehydrateStorage: () => {
+        // Cuando se rehidrata el estado desde el almacenamiento local
+        return (state) => {
+          if (state) {
+            // Verificar si lastWorkoutIndex está definido, si no, inicializarlo
+            if (state.lastWorkoutIndex === undefined) {
+              state.lastWorkoutIndex = -1
+            }
+
+            // Para depuración
+            console.log("Estado rehidratado:", {
+              workoutsCount: state.workouts?.length || 0,
+              lastWorkoutIndex: state.lastWorkoutIndex,
+              lastWorkoutDate: state.lastWorkoutDate,
+            })
+          }
+        }
+      },
     },
   ),
 )

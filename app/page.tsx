@@ -1,10 +1,11 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import WorkoutSchedule from "@/components/workout-schedule"
 import RecentWorkouts from "@/components/recent-workouts"
 import Logo from "@/components/logo"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import ResetButton from "@/components/reset-button"
 
 export default function Home() {
   return (
@@ -186,6 +187,9 @@ export default function Home() {
               </p>
             </div>
           </CardContent>
+          <CardFooter>
+            <ResetButton />
+          </CardFooter>
         </Card>
       </div>
     </div>
