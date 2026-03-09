@@ -1,155 +1,183 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import WorkoutTimer from "@/components/workout-timer"
-import { Plus, Minus } from "lucide-react"
+import { Plus, Minus, Check } from "lucide-react"
 import { useWorkoutStore } from "@/lib/workout-store"
 
 interface MaxRepsWorkoutProps {
   onComplete: (data: any) => void
 }
 
-export default function MaxRepsWorkout({ onComplete }: MaxRepsWorkoutProps) {
-  const { currentWorkout, saveCurrentWorkoutState } = useWorkoutStore()
+const TOTAL_SETS = 3
+const REST_TIME = 300 // 5 minutes
+
+function RepCounter({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (value: number) => void
+}) {
+  const decrement = () => onChange(Math.max(0, value - 1))
+  const increment = () => onChange(value + 1)
+
+  return (
+    <div className="flex items-center justify-center gap-4">
+      <Button
+        variant="outline"
+        size="lg"
+        onClick={decrement}
+        className="h-14 w-14 rounded-full"
+        aria-label="Disminuir repeticiones"
+      >
+        <Minus className="h-5 w-5" />
+      </Button>
+      <span className="text-5xl font-bold tabular-nums min-w-[80px] text-center">{value}</span>
+      <Button
+        variant="outline"
+        size="lg"
+        onClick={increment}
+        className="h-14 w-14 rounded-full"
+        aria-label="Aumentar repeticiones"
+      >
+        <Plus className="h-5 w-5" />
+      </Button>
+    </div>
+  )
+}
+
+const MemoizedRepCounter = memo(RepCounter)
+
+function MaxRepsWorkoutInner({ onComplete }: MaxRepsWorkoutProps) {
+  const currentWorkout = useWorkoutStore((state) => state.currentWorkout)
+  const saveCurrentWorkoutState = useWorkoutStore((state) => state.saveCurrentWorkoutState)
+
   const [currentSet, setCurrentSet] = useState(1)
   const [reps, setReps] = useState<number[]>([0, 0, 0])
   const [showTimer, setShowTimer] = useState(false)
-  const totalSets = 3
-  const restTime = 300 // 5 minutes in seconds
 
-  // Load saved state if available - solo una vez al inicio
+  // Load saved state on mount
   useEffect(() => {
-    if (currentWorkout && currentWorkout.workoutType === "Max Reps" && currentWorkout.data) {
+    if (currentWorkout?.workoutType === "Max Reps" && currentWorkout?.data) {
       const data = currentWorkout.data
       if (data.currentSet) setCurrentSet(data.currentSet)
       if (data.reps) setReps(data.reps)
       if (data.showTimer !== undefined) setShowTimer(data.showTimer)
     }
-  }, [])
+  }, []) // Only run on mount
 
-  // Guardar el estado solo cuando cambian los valores importantes
-  const saveState = () => {
+  const saveState = useCallback(() => {
     saveCurrentWorkoutState({
       exercise: currentWorkout?.exercise || "Dominadas",
       workoutType: "Max Reps",
       dayName: "Día 1",
-      data: {
-        currentSet,
-        reps,
-        showTimer,
-      },
+      data: { currentSet, reps, showTimer },
     })
-  }
+  }, [currentWorkout, currentSet, reps, showTimer, saveCurrentWorkoutState])
 
-  // Usar funciones para los manejadores de eventos en lugar de depender del efecto
-  const handleRepChange = (value: number) => {
-    const newReps = [...reps]
-    newReps[currentSet - 1] = Math.max(0, value)
-    setReps(newReps)
+  const handleRepChange = useCallback(
+    (value: number) => {
+      const newReps = [...reps]
+      newReps[currentSet - 1] = value
+      setReps(newReps)
+      // Defer state saving
+      setTimeout(saveState, 0)
+    },
+    [currentSet, reps, saveState],
+  )
 
-    // Guardamos el estado después de actualizar
-    setTimeout(() => {
-      saveState()
-    }, 0)
-  }
-
-  const handleNextSet = () => {
-    if (currentSet < totalSets) {
+  const handleNextSet = useCallback(() => {
+    if (currentSet < TOTAL_SETS) {
       setShowTimer(true)
     } else {
-      handleComplete()
+      onComplete({
+        sets: TOTAL_SETS,
+        reps,
+        maxReps: Math.max(...reps),
+        totalReps: reps.reduce((a, b) => a + b, 0),
+        seriesDetail: reps,
+      })
     }
+    setTimeout(saveState, 0)
+  }, [currentSet, reps, onComplete, saveState])
 
-    // Guardamos el estado después de actualizar
-    setTimeout(() => {
-      saveState()
-    }, 0)
-  }
-
-  const handleTimerComplete = () => {
+  const handleTimerComplete = useCallback(() => {
     setShowTimer(false)
-    setCurrentSet((prevSet) => prevSet + 1)
+    setCurrentSet((prev) => prev + 1)
+    setTimeout(saveState, 0)
+  }, [saveState])
 
-    // Guardamos el estado después de actualizar
-    setTimeout(() => {
-      saveState()
-    }, 0)
-  }
-
-  const handleComplete = () => {
-    onComplete({
-      sets: totalSets,
-      reps: reps,
-      maxReps: Math.max(...reps),
-      totalReps: reps.reduce((a, b) => a + b, 0),
-      seriesDetail: reps, // Save detailed series information
-    })
+  if (showTimer) {
+    return (
+      <WorkoutTimer
+        duration={REST_TIME}
+        onComplete={handleTimerComplete}
+        timerId="max-reps"
+        currentInfo={{
+          type: "Max Reps",
+          currentSet,
+          totalSets: TOTAL_SETS,
+          exercise: currentWorkout?.exercise || "Dominadas",
+        }}
+      />
+    )
   }
 
   return (
     <div className="space-y-6">
-      {showTimer ? (
-        <WorkoutTimer
-          duration={restTime}
-          onComplete={handleTimerComplete}
-          timerId="max-reps"
-          currentInfo={{
-            type: "Max Reps",
-            currentSet: currentSet,
-            totalSets: totalSets,
-            exercise: currentWorkout?.exercise || "Dominadas",
-          }}
-        />
-      ) : (
-        <>
-          <div className="text-center">
-            <h3 className="text-lg font-medium">
-              Serie {currentSet} de {totalSets}
-            </h3>
-            <p className="text-sm text-muted-foreground">Realiza el máximo de repeticiones posible</p>
+      <div className="text-center">
+        <p className="text-sm text-muted-foreground">Serie</p>
+        <h3 className="text-2xl font-bold">
+          {currentSet} <span className="text-muted-foreground">/ {TOTAL_SETS}</span>
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1">Realiza el máximo posible</p>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <MemoizedRepCounter value={reps[currentSet - 1]} onChange={handleRepChange} />
+            <Label className="block text-center text-sm text-muted-foreground">
+              repeticiones
+            </Label>
+
+            <Button onClick={handleNextSet} className="w-full h-12" size="lg">
+              {currentSet < TOTAL_SETS ? (
+                <>Siguiente Serie</>
+              ) : (
+                <>
+                  <Check className="mr-2 h-5 w-5" />
+                  Completar
+                </>
+              )}
+            </Button>
           </div>
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="flex flex-col items-center justify-center space-y-2">
-                  <div className="flex items-center space-x-4">
-                    <Button variant="outline" size="icon" onClick={() => handleRepChange(reps[currentSet - 1] - 1)}>
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="text-4xl font-bold">{reps[currentSet - 1]}</span>
-                    <Button variant="outline" size="icon" onClick={() => handleRepChange(reps[currentSet - 1] + 1)}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <Label className="text-center text-sm text-muted-foreground">Repeticiones</Label>
-                </div>
-
-                <Button className="w-full" onClick={handleNextSet}>
-                  {currentSet < totalSets ? "Siguiente Serie" : "Completar Entrenamiento"}
-                </Button>
+      {currentSet > 1 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Anteriores:</p>
+          <div className="flex gap-2">
+            {reps.slice(0, currentSet - 1).map((rep, index) => (
+              <div
+                key={index}
+                className="flex-1 py-2 px-3 rounded-lg bg-muted text-center"
+              >
+                <span className="text-xs text-muted-foreground">S{index + 1}</span>
+                <p className="font-bold">{rep}</p>
               </div>
-            </CardContent>
-          </Card>
-
-          {currentSet > 1 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Series Anteriores:</h4>
-              <div className="space-y-1">
-                {reps.slice(0, currentSet - 1).map((rep, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span>Serie {index + 1}:</span>
-                    <span className="font-medium">{rep} repeticiones</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )
 }
+
+const MaxRepsWorkout = memo(MaxRepsWorkoutInner)
+export default MaxRepsWorkout

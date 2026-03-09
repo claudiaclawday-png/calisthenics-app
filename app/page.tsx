@@ -6,188 +6,139 @@ import RecentWorkouts from "@/components/recent-workouts"
 import Logo from "@/components/logo"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import ResetButton from "@/components/reset-button"
+import { memo } from "react"
 
-export default function Home() {
+const weeklyRoutines = {
+  intensive: {
+    name: "Intensiva",
+    days: [
+      { name: "Lun", exercise: "Dominadas" },
+      { name: "Mar", exercise: "Fondos" },
+      { name: "Mié", exercise: "Descanso" },
+      { name: "Jue", exercise: "Dominadas" },
+      { name: "Vie", exercise: "Fondos" },
+      { name: "Sáb", exercise: "Descanso" },
+      { name: "Dom", exercise: "Descanso" },
+    ],
+  },
+  spaced: {
+    name: "Espaciada",
+    days: [
+      { name: "Lun", exercise: "Dominadas" },
+      { name: "Mar", exercise: "Descanso" },
+      { name: "Mié", exercise: "Fondos" },
+      { name: "Jue", exercise: "Descanso" },
+      { name: "Vie", exercise: "Dominadas" },
+      { name: "Sáb", exercise: "Descanso" },
+      { name: "Dom", exercise: "Fondos" },
+    ],
+  },
+}
+
+function RoutineCard({ routine, isActive }: { routine: typeof weeklyRoutines.intensive; isActive: boolean }) {
   return (
-    <div className="container px-4 py-6 md:py-10">
+    <div className="overflow-x-auto pb-3 -mx-2 px-2">
+      <div className="flex min-w-max gap-2">
+        {routine.days.map((day, index) => (
+          <div
+            key={index}
+            className={`w-16 flex-shrink-0 rounded-lg p-2 text-center transition-colors ${
+              day.exercise === "Descanso"
+                ? "bg-muted/50"
+                : isActive
+                  ? "bg-primary/10 border-primary"
+                  : "bg-muted"
+            }`}
+          >
+            <div className="text-xs font-medium">{day.name}</div>
+            <div
+              className={`text-xs mt-1 ${
+                day.exercise === "Descanso" ? "text-muted-foreground" : "text-primary font-medium"
+              }`}
+            >
+              {day.exercise}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const MemoizedRoutineCard = memo(RoutineCard)
+
+function HomeContent() {
+  return (
+    <div className="container px-3 py-4 md:py-8">
       <div className="flex flex-col space-y-6">
-        <div className="flex flex-col items-center space-y-4 text-center">
+        {/* Header */}
+        <div className="flex flex-col items-center space-y-3 text-center">
           <div className="rounded-full bg-primary/10 p-3">
-            <Logo size={48} showText={false} />
+            <Logo size={40} showText={false} />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Seguimiento de Calistenia</h1>
-            <p className="text-muted-foreground">Controla tu rutina de calistenia y tu progreso</p>
+            <h1 className="text-2xl font-bold tracking-tight">Calistenia</h1>
+            <p className="text-sm text-muted-foreground">Seguimiento de entrenamiento</p>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Próximo Entrenamiento</CardTitle>
-              <CardDescription>Basado en tu último entrenamiento registrado</CardDescription>
+        {/* Quick Actions - Mobile optimized */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Próximo</CardTitle>
+              <CardDescription className="text-xs">Según tu progreso</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <WorkoutSchedule />
-              <div className="mt-4">
-                <Link href="/workout/select">
-                  <Button className="w-full">Comenzar Entrenamiento</Button>
-                </Link>
-              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Entrenamientos Recientes</CardTitle>
-              <CardDescription>Tus últimos resultados de entrenamiento</CardDescription>
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Recientes</CardTitle>
+              <CardDescription className="text-xs">Últimos resultados</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <RecentWorkouts />
-              <div className="mt-4">
-                <Link href="/history">
-                  <Button variant="outline" className="w-full">
-                    Ver Historial Completo
-                  </Button>
-                </Link>
-              </div>
             </CardContent>
           </Card>
         </div>
 
+        {/* CTA Button */}
+        <Link href="/workout/select">
+          <Button size="lg" className="w-full h-12 text-base">
+            Comenzar Entrenamiento
+          </Button>
+        </Link>
+
+        {/* Weekly Routines */}
         <Card>
-          <CardHeader>
-            <CardTitle>Ejemplos de Rutinas Semanales</CardTitle>
-            <CardDescription>Puedes organizar tu rutina de calistenia de estas formas</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Rutinas Semanales</CardTitle>
+            <CardDescription className="text-xs">Organiza tu semana</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="routine1">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="routine1">Rutina Intensiva</TabsTrigger>
-                <TabsTrigger value="routine2">Rutina Espaciada</TabsTrigger>
+            <Tabs defaultValue="intensive">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="intensive">{weeklyRoutines.intensive.name}</TabsTrigger>
+                <TabsTrigger value="spaced">{weeklyRoutines.spaced.name}</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="routine1" className="mt-4">
-                {/* Versión para móviles - scroll horizontal */}
-                <div className="md:hidden overflow-x-auto pb-4">
-                  <div className="flex min-w-max">
-                    {["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"].map((day, index) => (
-                      <div key={index} className="w-20 flex-shrink-0 p-2 border rounded-md mx-1">
-                        <div className="font-medium text-sm">{day}</div>
-                        <div className="text-xs mt-1">
-                          {index === 0 || index === 3 ? (
-                            <span className="text-primary">Dominadas</span>
-                          ) : index === 1 || index === 4 ? (
-                            <span className="text-primary">Fondos</span>
-                          ) : (
-                            <span className="text-muted-foreground">Descanso</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Versión para desktop */}
-                <div className="hidden md:grid grid-cols-7 gap-2 text-center">
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Lunes</div>
-                    <div className="text-sm text-primary">Dominadas</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Martes</div>
-                    <div className="text-sm text-primary">Fondos</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Miércoles</div>
-                    <div className="text-sm text-muted-foreground">Descanso</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Jueves</div>
-                    <div className="text-sm text-primary">Dominadas</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Viernes</div>
-                    <div className="text-sm text-primary">Fondos</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Sábado</div>
-                    <div className="text-sm text-muted-foreground">Descanso</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Domingo</div>
-                    <div className="text-sm text-muted-foreground">Descanso</div>
-                  </div>
-                </div>
+              <TabsContent value="intensive">
+                <MemoizedRoutineCard routine={weeklyRoutines.intensive} isActive={true} />
               </TabsContent>
 
-              <TabsContent value="routine2" className="mt-4">
-                {/* Versión para móviles - scroll horizontal */}
-                <div className="md:hidden overflow-x-auto pb-4">
-                  <div className="flex min-w-max">
-                    {["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"].map((day, index) => (
-                      <div key={index} className="w-20 flex-shrink-0 p-2 border rounded-md mx-1">
-                        <div className="font-medium text-sm">{day}</div>
-                        <div className="text-xs mt-1">
-                          {index === 0 || index === 4 ? (
-                            <span className="text-primary">Dominadas</span>
-                          ) : index === 2 || index === 6 ? (
-                            <span className="text-primary">Fondos</span>
-                          ) : (
-                            <span className="text-muted-foreground">Descanso</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Versión para desktop */}
-                <div className="hidden md:grid grid-cols-7 gap-2 text-center">
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Lunes</div>
-                    <div className="text-sm text-primary">Dominadas</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Martes</div>
-                    <div className="text-sm text-muted-foreground">Descanso</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Miércoles</div>
-                    <div className="text-sm text-primary">Fondos</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Jueves</div>
-                    <div className="text-sm text-muted-foreground">Descanso</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Viernes</div>
-                    <div className="text-sm text-primary">Dominadas</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Sábado</div>
-                    <div className="text-sm text-muted-foreground">Descanso</div>
-                  </div>
-                  <div className="p-2 border rounded-md">
-                    <div className="font-medium">Domingo</div>
-                    <div className="text-sm text-primary">Fondos</div>
-                  </div>
-                </div>
+              <TabsContent value="spaced">
+                <MemoizedRoutineCard routine={weeklyRoutines.spaced} isActive={true} />
               </TabsContent>
             </Tabs>
 
-            <div className="mt-4 text-sm text-muted-foreground">
-              <p>
-                Recuerda que cada tipo de entrenamiento (Max Reps, Sub Max, Volumen Escalera) debe realizarse en
-                secuencia para cada ejercicio.
-              </p>
-              <p className="mt-2">
-                Por ejemplo: Lunes (Dominadas Max Reps) → Jueves (Dominadas Sub Max) → Lunes siguiente (Dominadas
-                Volumen Escalera)
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Secuencia: Max Reps → Sub Max → Volumen. Completa cada etapa para avanzar.
+            </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="pt-2">
             <ResetButton />
           </CardFooter>
         </Card>
@@ -195,3 +146,6 @@ export default function Home() {
     </div>
   )
 }
+
+const Home = memo(HomeContent)
+export default Home

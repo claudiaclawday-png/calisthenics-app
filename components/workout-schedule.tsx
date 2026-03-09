@@ -1,49 +1,63 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, memo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useWorkoutStore } from "@/lib/workout-store"
 import Link from "next/link"
-import { Edit2 } from "lucide-react"
+import { Edit2, Info } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoIcon } from "lucide-react"
 
-export default function WorkoutSchedule() {
+interface WorkoutDay {
+  dayName: string
+  workoutType: string
+  exercise: string
+}
+
+interface LastWorkout {
+  date: string
+  exercise: string
+  workoutType: string
+}
+
+const workoutDescriptions: Record<string, string> = {
+  "Max Reps": "3 series al máximo con 5 min de descanso",
+  "Sub Max": "10 series al 50% del máximo con 1 min de descanso",
+  "Volumen Escalera": "1 rep hasta el máximo. 5 ciclos con 30 seg descanso",
+}
+
+function WorkoutScheduleInner() {
   const [currentDay, setCurrentDay] = useState("")
   const [workoutType, setWorkoutType] = useState("")
   const [exercise, setExercise] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-  const [lastWorkout, setLastWorkout] = useState<any>(null)
-  const { getCurrentWorkoutDay, getRecentWorkouts } = useWorkoutStore()
+  const [lastWorkout, setLastWorkout] = useState<LastWorkout | null>(null)
+
+  const getCurrentWorkoutDay = useWorkoutStore((state) => state.getCurrentWorkoutDay)
+  const getRecentWorkouts = useWorkoutStore((state) => state.getRecentWorkouts)
 
   useEffect(() => {
-    // Asegurarse de que getCurrentWorkoutDay esté disponible antes de llamarlo
-    if (typeof getCurrentWorkoutDay === "function") {
-      try {
-        const nextWorkout = getCurrentWorkoutDay()
-        setCurrentDay(nextWorkout.dayName)
-        setWorkoutType(nextWorkout.workoutType)
-        setExercise(nextWorkout.exercise)
+    const nextWorkout = getCurrentWorkoutDay()
+    setCurrentDay(nextWorkout.dayName)
+    setWorkoutType(nextWorkout.workoutType)
+    setExercise(nextWorkout.exercise)
 
-        // Obtener el último entrenamiento para mostrar información
-        const recentWorkouts = getRecentWorkouts(1)
-        if (recentWorkouts.length > 0) {
-          setLastWorkout(recentWorkouts[0])
-        }
-
-        setIsLoading(false)
-      } catch (error) {
-        console.error("Error al obtener el día de entrenamiento actual:", error)
-        setIsLoading(false)
-      }
+    const recentWorkouts = getRecentWorkouts(1)
+    if (recentWorkouts.length > 0) {
+      setLastWorkout({
+        date: recentWorkouts[0].date,
+        exercise: recentWorkouts[0].exercise,
+        workoutType: recentWorkouts[0].workoutType,
+      })
     }
+
+    setIsLoading(false)
   }, [getCurrentWorkoutDay, getRecentWorkouts])
 
   if (isLoading) {
     return (
       <div className="flex h-32 items-center justify-center">
-        <p className="text-muted-foreground">Cargando entrenamiento...</p>
+        <p className="text-muted-foreground">Cargando...</p>
       </div>
     )
   }
@@ -51,53 +65,53 @@ export default function WorkoutSchedule() {
   return (
     <div className="space-y-4">
       <Alert className="bg-primary/5 border-primary/20">
-        <InfoIcon className="h-4 w-4" />
-        <AlertTitle>Secuencia de Entrenamiento</AlertTitle>
+        <Info className="h-4 w-4" />
+        <AlertTitle className="text-sm">Secuencia</AlertTitle>
         <AlertDescription className="text-xs">
-          Los entrenamientos siguen esta secuencia: Dominadas Max Reps → Fondos Max Reps → Dominadas Sub Max → Fondos
-          Sub Max → Dominadas Volumen Escalera → Fondos Volumen Escalera
+          Dominadas Max → Fondos Max → Dominadas Sub → Fondos Sub → Dominadas Volumen → Fondos Volumen
         </AlertDescription>
       </Alert>
 
       {lastWorkout && (
-        <div className="text-xs text-muted-foreground bg-gray-50 p-2 rounded">
-          <p className="font-medium">Último entrenamiento:</p>
+        <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+          <p className="font-medium">Último:</p>
           <p>
-            {lastWorkout.exercise} - {lastWorkout.workoutType} ({new Date(lastWorkout.date).toLocaleDateString()})
+            {lastWorkout.exercise} - {lastWorkout.workoutType}
           </p>
         </div>
       )}
 
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium">Día:</p>
+          <p className="text-sm font-medium">Día</p>
           <p className="text-lg font-bold">{currentDay}</p>
         </div>
         <Badge variant={exercise === "Dominadas" ? "default" : "secondary"} className="text-xs">
           {exercise}
         </Badge>
       </div>
+
       <div>
-        <p className="text-sm font-medium">Tipo de entrenamiento:</p>
+        <p className="text-sm font-medium">Tipo</p>
         <p className="text-lg">{workoutType}</p>
       </div>
+
       <div>
-        <p className="text-sm font-medium">Descripción:</p>
-        <p className="text-sm text-muted-foreground">
-          {workoutType === "Max Reps" && "3 series al máximo con 5 minutos de descanso"}
-          {workoutType === "Sub Max" && "10 series al 50% del máximo con 1 minuto de descanso"}
-          {workoutType === "Volumen Escalera" &&
-            "Empezar con 1 rep e ir aumentando hasta el máximo. Repetir 5 veces con 30 segundos de descanso"}
-        </p>
+        <p className="text-sm font-medium">Descripción</p>
+        <p className="text-sm text-muted-foreground">{workoutDescriptions[workoutType]}</p>
       </div>
-      <div className="pt-4 mt-2">
+
+      <div className="pt-2">
         <Link href="/workout/select">
           <Button variant="outline" size="sm" className="w-full">
             <Edit2 className="mr-2 h-4 w-4" />
-            Cambiar Entrenamiento
+            Cambiar
           </Button>
         </Link>
       </div>
     </div>
   )
 }
+
+const WorkoutSchedule = memo(WorkoutScheduleInner)
+export default WorkoutSchedule
