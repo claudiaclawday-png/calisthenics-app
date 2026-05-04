@@ -35,6 +35,7 @@ interface CurrentWorkoutState {
     showTimer?: boolean
     timeLeft?: number
     isActive?: boolean
+    timerEndTime?: number // Timestamp when timer should complete
   }
 }
 

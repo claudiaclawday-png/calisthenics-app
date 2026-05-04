@@ -9,9 +9,21 @@ import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+// Request notification permission on first load
+function requestNotificationPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return
+  
+  if (Notification.permission === "default") {
+    Notification.requestPermission().then((permission) => {
+      console.log("Notification permission:", permission)
+    })
+  }
+}
+
 interface WorkoutTimerProps {
   duration: number
   onComplete: () => void
+  onSkip?: () => void
   timerId?: string
   currentInfo?: {
     type: string
@@ -90,6 +102,7 @@ function showSystemNotification(message: string) {
 function WorkoutTimerInner({
   duration,
   onComplete,
+  onSkip,
   timerId = "default",
   currentInfo,
 }: WorkoutTimerProps) {
@@ -99,11 +112,14 @@ function WorkoutTimerInner({
 
   const soundEnabled = useWorkoutStore((state) => state.soundEnabled)
   const toggleSound = useWorkoutStore((state) => state.toggleSound)
+  const currentWorkout = useWorkoutStore((state) => state.currentWorkout)
+  const saveCurrentWorkoutState = useWorkoutStore((state) => state.saveCurrentWorkoutState)
 
   const { toast } = useToast()
 
   const workerRef = useRef<Worker | null>(null)
   const endTimeRef = useRef<number | null>(null)
+  const hasRestoredRef = useRef(false)
 
   const handleComplete = useCallback(() => {
     if (soundEnabled) playBeep()
@@ -115,12 +131,25 @@ function WorkoutTimerInner({
       duration: 4000,
     })
     setTimeout(() => setShowAlert(false), 4000)
+    // Clear timer state from store when complete
+    if (currentWorkout) {
+      saveCurrentWorkoutState({
+        ...currentWorkout,
+        data: {
+          ...currentWorkout.data,
+          timerEndTime: undefined,
+        },
+      })
+    }
     onComplete()
-  }, [soundEnabled, currentInfo, toast, onComplete])
+  }, [soundEnabled, currentInfo, toast, onComplete, currentWorkout, saveCurrentWorkoutState])
 
-  // Initialize worker
+  // Initialize worker and restore timer state
   useEffect(() => {
     if (typeof window === "undefined" || !window.Worker) return
+
+    // Request notification permission on first load
+    requestNotificationPermission()
 
     const workerCode = `
       let timerId = null;
@@ -157,19 +186,61 @@ function WorkoutTimerInner({
       }
     }
 
-    // Start timer
-    workerRef.current.postMessage({ type: "start", duration })
-    endTimeRef.current = Date.now() + duration * 1000
+    // Check if there's a saved timer state to restore
+    const savedEndTime = currentWorkout?.data?.timerEndTime
+    const now = Date.now()
+    
+    if (savedEndTime && !hasRestoredRef.current) {
+      // Restore timer from saved state
+      const remainingMs = savedEndTime - now
+      if (remainingMs > 0) {
+        const remainingSeconds = Math.ceil(remainingMs / 1000)
+        setTimeLeft(remainingSeconds)
+        setProgress((remainingSeconds / duration) * 100)
+        workerRef.current.postMessage({ type: "start", duration: remainingSeconds })
+        endTimeRef.current = savedEndTime
+      } else {
+        // Timer already expired while in background
+        handleComplete()
+      }
+      hasRestoredRef.current = true
+    } else {
+      // Start fresh timer
+      workerRef.current.postMessage({ type: "start", duration })
+      endTimeRef.current = now + duration * 1000
+      // Save timer end time to store
+      if (currentWorkout) {
+        saveCurrentWorkoutState({
+          ...currentWorkout,
+          data: {
+            ...currentWorkout.data,
+            timerEndTime: now + duration * 1000,
+          },
+        })
+      }
+    }
 
     return () => {
       workerRef.current?.terminate()
     }
-  }, [duration, handleComplete])
+  }, [duration, handleComplete, currentWorkout, saveCurrentWorkoutState])
 
-  // Handle visibility
+  // Handle visibility changes - update store with current endTime
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && endTimeRef.current) {
+      if (document.visibilityState === "hidden" && endTimeRef.current) {
+        // App going to background - save current timer state
+        if (currentWorkout) {
+          saveCurrentWorkoutState({
+            ...currentWorkout,
+            data: {
+              ...currentWorkout.data,
+              timerEndTime: endTimeRef.current,
+            },
+          })
+        }
+      } else if (document.visibilityState === "visible" && endTimeRef.current) {
+        // App coming to foreground - check if timer expired
         const newTimeLeft = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
         if (newTimeLeft <= 0) {
           setTimeLeft(0)
@@ -185,10 +256,26 @@ function WorkoutTimerInner({
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [duration, handleComplete])
+  }, [duration, handleComplete, currentWorkout, saveCurrentWorkoutState])
 
   const skipTimer = () => {
     workerRef.current?.postMessage({ type: "skip" })
+    // Clear timer state from store when skipped
+    if (currentWorkout) {
+      saveCurrentWorkoutState({
+        ...currentWorkout,
+        data: {
+          ...currentWorkout.data,
+          timerEndTime: undefined,
+        },
+      })
+    }
+    // Call onSkip if provided, otherwise onComplete
+    if (onSkip) {
+      onSkip()
+    } else {
+      onComplete()
+    }
   }
 
   return (

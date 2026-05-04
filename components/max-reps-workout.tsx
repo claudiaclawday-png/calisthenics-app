@@ -8,6 +8,17 @@ import WorkoutTimer from "@/components/workout-timer"
 import { Plus, Minus, Check } from "lucide-react"
 import { useWorkoutStore } from "@/lib/workout-store"
 
+// Request notification permission on first load
+function requestNotificationPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return
+  
+  if (Notification.permission === "default") {
+    Notification.requestPermission().then((permission) => {
+      console.log("Notification permission:", permission)
+    })
+  }
+}
+
 interface MaxRepsWorkoutProps {
   onComplete: (data: any) => void
 }
@@ -60,8 +71,11 @@ function MaxRepsWorkoutInner({ onComplete }: MaxRepsWorkoutProps) {
   const [reps, setReps] = useState<number[]>([0, 0, 0])
   const [showTimer, setShowTimer] = useState(false)
 
-  // Load saved state on mount
+  // Load saved state on mount and request notification permission
   useEffect(() => {
+    // Request notification permission when workout loads
+    requestNotificationPermission()
+    
     if (currentWorkout?.workoutType === "Max Reps" && currentWorkout?.data) {
       const data = currentWorkout.data
       if (data.currentSet) setCurrentSet(data.currentSet)
@@ -111,11 +125,18 @@ function MaxRepsWorkoutInner({ onComplete }: MaxRepsWorkoutProps) {
     setTimeout(saveState, 0)
   }, [saveState])
 
+  const handleTimerSkip = useCallback(() => {
+    setShowTimer(false)
+    setCurrentSet((prev) => prev + 1)
+    setTimeout(saveState, 0)
+  }, [saveState])
+
   if (showTimer) {
     return (
       <WorkoutTimer
         duration={REST_TIME}
         onComplete={handleTimerComplete}
+        onSkip={handleTimerSkip}
         timerId="max-reps"
         currentInfo={{
           type: "Max Reps",

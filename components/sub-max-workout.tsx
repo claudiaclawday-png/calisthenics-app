@@ -8,6 +8,17 @@ import WorkoutTimer from "@/components/workout-timer"
 import { Plus, Minus } from "lucide-react"
 import { useWorkoutStore } from "@/lib/workout-store"
 
+// Request notification permission on first load
+function requestNotificationPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return
+  
+  if (Notification.permission === "default") {
+    Notification.requestPermission().then((permission) => {
+      console.log("Notification permission:", permission)
+    })
+  }
+}
+
 interface SubMaxWorkoutProps {
   onComplete: (data: any) => void
 }
@@ -23,6 +34,9 @@ export default function SubMaxWorkout({ onComplete }: SubMaxWorkoutProps) {
 
   // Load saved state if available - solo una vez al inicio
   useEffect(() => {
+    // Request notification permission when workout loads
+    requestNotificationPermission()
+    
     if (currentWorkout && currentWorkout.workoutType === "Sub Max" && currentWorkout.data) {
       const data = currentWorkout.data
       if (data.currentSet) setCurrentSet(data.currentSet)
@@ -87,6 +101,16 @@ export default function SubMaxWorkout({ onComplete }: SubMaxWorkoutProps) {
     }, 0)
   }
 
+  const handleTimerSkip = () => {
+    setShowTimer(false)
+    setCurrentSet((prevSet) => prevSet + 1)
+
+    // Guardamos el estado después de actualizar
+    setTimeout(() => {
+      saveState()
+    }, 0)
+  }
+
   const handleComplete = () => {
     onComplete({
       sets: totalSets,
@@ -103,6 +127,7 @@ export default function SubMaxWorkout({ onComplete }: SubMaxWorkoutProps) {
         <WorkoutTimer
           duration={restTime}
           onComplete={handleTimerComplete}
+          onSkip={handleTimerSkip}
           timerId="sub-max"
           currentInfo={{
             type: "Sub Max",

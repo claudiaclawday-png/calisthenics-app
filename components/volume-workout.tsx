@@ -8,6 +8,17 @@ import WorkoutTimer from "@/components/workout-timer"
 import { useWorkoutStore } from "@/lib/workout-store"
 import { Check, Flag, CheckSquare } from "lucide-react"
 
+// Request notification permission on first load
+function requestNotificationPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return
+  
+  if (Notification.permission === "default") {
+    Notification.requestPermission().then((permission) => {
+      console.log("Notification permission:", permission)
+    })
+  }
+}
+
 interface VolumeWorkoutProps {
   onComplete: (data: any) => void
 }
@@ -123,6 +134,31 @@ export default function VolumeWorkout({ onComplete }: VolumeWorkoutProps) {
     }, 0)
   }
 
+  const handleTimerSkip = () => {
+    setShowTimer(false)
+
+    // When skipping, handle the state transition properly
+    if (currentRep === 0) {
+      // We're finishing a cycle - advance to next cycle
+      if (currentCycle < totalCycles) {
+        setCurrentCycle((prevCycle) => prevCycle + 1)
+        setCurrentRep(1)
+      } else {
+        // At last cycle - complete workout
+        handleComplete()
+        return
+      }
+    } else {
+      // In the middle of a cycle - just advance rep
+      setCurrentRep((prevRep) => prevRep + 1)
+    }
+
+    // Guardamos el estado después de actualizar
+    setTimeout(() => {
+      saveState()
+    }, 0)
+  }
+
   const handleFinishCycle = () => {
     if (currentCycle < totalCycles) {
       // Marcar que estamos cambiando de ciclo con currentRep = 0
@@ -163,6 +199,7 @@ export default function VolumeWorkout({ onComplete }: VolumeWorkoutProps) {
         <WorkoutTimer
           duration={restTime}
           onComplete={handleTimerComplete}
+          onSkip={handleTimerSkip}
           timerId="volume-ladder"
           currentInfo={{
             type: "Volumen Escalera",
